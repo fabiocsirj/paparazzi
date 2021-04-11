@@ -8,6 +8,7 @@ class Drone:
         self.maxSpeed = 0.2                                    # Define a velocidade maxima inicial
         self.mission  = None                                   # Configura a missao
         self.alvo     = PVector(0, 0)                          # Alvo inicial
+        self.wind     = PVector(0, 0)                          # Vento inicial
         
         # Variaveis auxiliares para _seek_p8
         self._c    = PVector(0, 0)
@@ -38,21 +39,21 @@ class Drone:
             # DEFINE A DIRECAO
             direcao = PVector.sub(self.alvo, self.pos)          # Direcao e a diferenca entre o alvo e a posicao atual
             distancia = direcao.mag()                           # Define a Distancia
-            print('Distancia:',distancia)
+            # print('Distancia:',distancia)
             self.maxSpeed = min(6, self.maxSpeed+0.2)           # Aceleracao gradual
             if not self._path and distancia < 70: 
                 self.maxSpeed = map(distancia, 0, 70, 0.1, 6)   # Desaceleracao gradual
 
-            print('max speed:', self.maxSpeed)
+            # print('max speed:', self.maxSpeed)
             direcao.limit(self.maxSpeed)                        # Limita o salto de direcao pela velocidade estabelecida acima
             ##################
 
             # DEFINE A ACELERACAO
             acelera = PVector.sub(direcao, self.velo)           # Aceleracao e a diferenca entre a direcao e a velocidade atual
-            acelera.limit(0.32)                                 # Suaviza Transicao 
-            print('Aceleracao:', acelera)
+            acelera.limit(0.32)                                 # Suaviza Transicao
+            # print('Aceleracao:', acelera)
             #####################
-            
+
             # DEFINE A VELOCIDADE
             self.velo.add(acelera)                              # Adiciona a aceleracao a velocidade atual
             self.velo.limit(self.maxSpeed)                      # Limita a velocidade a maxima permitida
@@ -61,6 +62,10 @@ class Drone:
             # ATUALIZA POSICAO
             self.pos.add(self.velo)                             # Atualiza a posicao adicionando a velocidade a posicao atual
             ##################
+
+            # Pertubacao do vento
+            self.pos.sub(self.wind)
+            #####################
     
             # DESEHA O DRONE NA TELA
             self._paint()
