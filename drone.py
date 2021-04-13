@@ -2,13 +2,17 @@ from util import ponto
 from oito import Oito
 
 class Drone:
-    def __init__(self):
+    def __init__(self, id):
+        self.id       = id
         self.pos      = PVector(random(width), random(height)) # Posicao inicial aleatoria
         self.velo     = PVector(0, 0)                          # Velociade inicial
         self.maxSpeed = 0.2                                    # Define a velocidade maxima inicial
         self.mission  = None                                   # Configura a missao
         self.alvo     = PVector(0, 0)                          # Alvo inicial
         self.wind     = PVector(0, 0)                          # Vento inicial
+        self.radarOn  = 0
+        self.desvio   = PVector(0, 0)
+        self.colide   = 0
         
         # Variaveis auxiliares para _seek_p8
         self._c    = PVector(0, 0)
@@ -30,6 +34,8 @@ class Drone:
         rotate(angulo)
         img = loadImage("drone4.png")
         image(img, -37, 0)
+        fill(255)
+        text("{}".format(self.id), -5, 37)
         popMatrix()
 
     def execute(self):
@@ -43,6 +49,8 @@ class Drone:
             self.maxSpeed = min(6, self.maxSpeed+0.2)           # Aceleracao gradual
             if not self._path and distancia < 70: 
                 self.maxSpeed = map(distancia, 0, 70, 0.1, 6)   # Desaceleracao gradual
+            if self.colide == 1 and distancia < 100: 
+                self.maxSpeed = map(distancia, 0, 100, 0.1, 3)   # Desaceleracao brusco para evitar colisao
 
             # print('max speed:', self.maxSpeed)
             direcao.limit(self.maxSpeed)                        # Limita o salto de direcao pela velocidade estabelecida acima
@@ -57,6 +65,7 @@ class Drone:
             # DEFINE A VELOCIDADE
             self.velo.add(acelera)                              # Adiciona a aceleracao a velocidade atual
             self.velo.limit(self.maxSpeed)                      # Limita a velocidade a maxima permitida
+            print("V {}: {}".format(self.id, self.velo.mag()))
             #####################
             
             # ATUALIZA POSICAO
@@ -66,10 +75,15 @@ class Drone:
             # Pertubacao do vento
             self.pos.sub(self.wind)
             #####################
-    
+            
             # DESEHA O DRONE NA TELA
             self._paint()
             ##########################
+            
+            # Radar
+            if self.radarOn: self.radar()
+            else: self._paint_mission()
+            #######
 
     def _esquina_p8(self, p8, theta, orbita1, i):        # Dupla funcao: i = 1  define esquina mais proxima...
         orbitas = p8.get_orbitas()                       # ...           i = -1 transicao entre orbitas
@@ -124,10 +138,62 @@ class Drone:
                 self._esquina_p8(p8, theta, orbita1, -1)                # Verifica limite da orbita (para fazer a transicao)...
                                                                         # ...da sup. esq. para inf. dir. e da sup. dir. para inf. esq.
             elif PVector.sub(self.alvo, self.pos).mag() < 15: self._orb = True
-        
-        # Marca o alvo
+
+    def _paint_mission(self):
         fill(255,0,0)
+        stroke(255,0,0)
         ellipse(self.alvo.x, self.alvo.y, 6, 6)
-        stroke(0,0,255);
         line(self.pos.x, self.pos.y, self.alvo.x, self.alvo.y);
-        ##############
+        ##############        
+
+    def radar(self):
+        if self.colide == 0:
+            saveFrame("radar{}.jpg".format(self.id))
+            imgRadar = loadImage("radar{}.jpg".format(self.id))
+            loadPixels()
+            
+            h9 = self.velo.heading() - PI/2
+            for i in range(5, 14):
+                if self.colide > 0: break
+                hx = h9 + (PI * (i/20.0)) 
+                borda  = PVector(self.pos.x + (75*cos(hx)), self.pos.y + (75*sin(hx)))
+                for i in range(10, 100, 10):
+                    fp = PVector.sub(borda, self.pos).normalize(None).mult(i) # Posicao futura
+                    # point(self.pos.x+fp.x, self.pos.y+fp.y)
+                    pix = pixels[int(self.pos.y+fp.y)*1200+int(self.pos.x+fp.x)]
+                    pixels[int(self.pos.y+fp.y)*1200+int(self.pos.x+fp.x)] = -16777200
+                    if pix != -1:
+                        print('Detectou')
+                        x = int(self.pos.x+fp.x)
+                        y = int(self.pos.y+fp.y)
+                        print('X:', x)
+                        print('Y:', y)
+                        self.colide = 1
+                        self.desvio = self.alvo.copy()
+                        self.alvo.x = x
+                        self.alvo.y = y
+                        break
+            updatePixels()
+        
+        elif self.colide == 1:
+            if PVector.sub(self.alvo, self.pos).mag() < 100:
+                if self.alvo.x > self.pos.x:                
+                    theta = self.velo.heading() + PI/2
+                else: 
+                    theta = self.velo.heading() - PI/2
+                self.alvo.x = self.pos.x + (75 * cos(theta))
+                self.alvo.y = self.pos.y + (75 * sin(theta))
+                self.colide = 2
+        else:
+            if PVector.sub(self.alvo, self.pos).mag() < 35:
+                self.alvo = self.desvio.copy()
+                self.desvio - PVector(0,0)
+                self.colide = 0
+         
+        
+        
+        
+        
+        
+        
+        

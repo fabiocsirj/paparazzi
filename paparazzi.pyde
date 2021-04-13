@@ -3,18 +3,20 @@ from drone import Drone
 from oito import Oito
 
 # Variáveis Globais
-d1    = None
-p8    = None
-windA = 90
-windF = 0.5
+f      = 0
+drones = []
+p8     = None
+windA  = 90
+windF  = 0.5
 
 def setup():                        # Inicializa variáveis globais, frequencia e tamanho da tela
-    global d1, p8
-    frameRate(30)
+    global p8
+    frameRate(10)
     size(1200, 800)
-    d1 = Drone()
+    d = Drone(1)    
     p8 = Oito(width/2, height/2, 200)
-    d1.set_mission(p8)
+    d.set_mission(p8)
+    drones.append(d)
 
 def wind_control():
     centro = PVector(27, 27)
@@ -32,19 +34,27 @@ def wind_control():
     return wind
 
 def draw():
+    global f
     background(255)       # Fundo branco
-    p8.paint()            # Desenha 8 de Paparazzi
+    fill(0)
+    # ellipse(width/2, height/2, 10, 10)
+    f += 1
+    f = f % len(drones)
+    p8.paint()
     wind = wind_control()
-    d1.wind = wind
-    d1.execute()          # Executa missao
-    print('Velocidade:', PVector.sub(wind, d1.velo).limit(6).mag())
+    
+    for i in range(len(drones)):
+        drones[(i+f) % len(drones)].wind = wind
+        drones[(i+f) % len(drones)].execute()
+    
     print('---')
 
 def mouseClicked():
     global p8, windA
     if mouseX > 52 or mouseY > 52:
         p8 = Oito(mouseX, mouseY, 150)
-        d1.set_mission(p8)
+        for i in range(len(drones)):
+            drones[i].set_mission(p8)
     else:
         centro = PVector(27, 27)
         click  = PVector(mouseX, mouseY)
@@ -58,3 +68,11 @@ def keyPressed():
     global windF
     if key == '=': windF += 2
     if key == '-': windF -= 0.5
+    if key == 'd':
+        d = Drone(len(drones)+1)
+        d.set_mission(p8)
+        drones.append(d)
+    if key == 'r':
+        p8.show = (p8.show+1)%2
+        for i in range(len(drones)):
+            drones[i].radarOn = (drones[i].radarOn+1) % 2
