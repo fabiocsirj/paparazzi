@@ -8,7 +8,10 @@ class Drone:
         self.alvo     = PVector(0, 0)                          # Alvo inicial
         self.wind     = PVector(0, 0)                          # Vento inicial
         self.radarOn  = 0
-        self.colide   = 0
+        
+        # Variaveis auxiliares de colisao
+        self.colide = 0
+        self.objeto = PVector(0, 0)
         
         # Variaveis auxiliares para o seek
         self._wp   = 0
@@ -34,17 +37,19 @@ class Drone:
 
     def execute(self):
         if self.mission != None:
-            self._seek()
-            
+            if self.colide == 0: self._seek()
+
             # DEFINE A DIRECAO
             direcao = PVector.sub(self.alvo, self.pos)          # Direcao = a diferenca entre o alvo e a posicao atual
             distancia = direcao.mag()                           # Define a Distancia
             # print('Distancia:',distancia)
+            
             self.maxSpeed = min(6, self.maxSpeed+0.2)           # Aceleracao gradual
             if not self._path and distancia < 70: 
                 self.maxSpeed = map(distancia, 0, 70, 0.1, 6)   # Desaceleracao gradual para entrar no path
-            if self.colide == 1 and distancia < 100: 
-                self.maxSpeed = map(distancia, 0, 100, 0.1, 3)  # Desaceleracao brusca para evitar colisao
+            if self.colide == 1: 
+                posToObjeto = PVector.sub(self.objeto, self.pos)
+                self.maxSpeed = map(posToObjeto.mag(), 50, 100, 0, 6)  # Desaceleracao brusca para evitar colisao
 
             # print('max speed:', self.maxSpeed)
             direcao.limit(self.maxSpeed)                        # Limita o salto de direcao pela velocidade estabelecida acima
@@ -160,12 +165,12 @@ class Drone:
                         print('X:', x)
                         print('Y:', y)
                         self.colide = 1
-                        self.alvo   = PVector(x, y)
+                        self.objeto = PVector(x, y)
                         break
             updatePixels()
         
         elif self.colide == 1:
-            if PVector.sub(self.alvo, self.pos).mag() < 100:
+            if self.velo.mag() < 1:
                 r = int(random(2))
                 if r: theta = self.velo.heading() - PI/2
                 else: theta = self.velo.heading() + PI/2
@@ -174,8 +179,8 @@ class Drone:
                 self.alvo   = PVector(x, y)
                 self.colide = 2
         else:
+            line(self.pos.x, self.pos.y, self.alvo.x, self.alvo.y)
             if PVector.sub(self.alvo, self.pos).mag() < 35:
                 next_wp = (self._wp+1) % len(self.mission.waypoints)
                 self.alvo = self.mission.waypoints[next_wp]
                 self.colide = 0
-         
