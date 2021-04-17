@@ -54,7 +54,7 @@ def draw():
     background(255)       # Fundo branco
     fill(0)
     if obsOn: text('Set Obstacle', 500, 12)
-    else: text(labels[p], 500, 20)
+    else: text(labels[p], 500, 12)
     text('Press: [d] add drone | [r] on/off radar mode | [p] change mission', 2, 778)
     text('Press: [o] add obstacle or set center mission with mouse click', 2, 790)
     

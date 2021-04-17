@@ -10,12 +10,13 @@ class Drone:
         self.radarOn  = 0
         
         # Variaveis auxiliares de colisao
-        self.colide = 0
-        self.objeto = PVector(0, 0)
+        self.colide  = 0
+        self.objeto  = PVector(0, 0)
         
         # Variaveis auxiliares para o seek
-        self._wp   = 0
-        self._path = False
+        self._wp     = 0
+        self._path   = False
+        self._orbita = None
 
     def set_mission(self, m):
         self.mission = m
@@ -106,35 +107,38 @@ class Drone:
                 self._wp  = next_wp
                 next_wp = (self._wp+1) % len(self.mission.waypoints)
                 self.alvo = self.mission.waypoints[next_wp]
+                self._orbita = None
 
             if self.mission.rota[self._wp] > 0:
-                dif_x = abs(self.mission.waypoints[self._wp].x - self.mission.waypoints[next_wp].x)
-                dif_y = abs(self.mission.waypoints[self._wp].y - self.mission.waypoints[next_wp].y)
-                if self.mission.waypoints[self._wp].x < self.mission.waypoints[next_wp].x: 
-                    x = self.mission.waypoints[self._wp].x + (dif_x/2)
-                else: 
-                    x = self.mission.waypoints[self._wp].x - (dif_x/2)
-                if self.mission.waypoints[self._wp].y < self.mission.waypoints[next_wp].y: 
-                    y = self.mission.waypoints[self._wp].y + (dif_y/2)
-                else: 
-                    y = self.mission.waypoints[self._wp].y - (dif_y/2)
-                centro = PVector(x, y)
+                if not self._orbita:
+                    dif_x = abs(self.mission.waypoints[self._wp].x - self.mission.waypoints[next_wp].x)
+                    dif_y = abs(self.mission.waypoints[self._wp].y - self.mission.waypoints[next_wp].y)
+                    if self.mission.waypoints[self._wp].x < self.mission.waypoints[next_wp].x: 
+                        x = self.mission.waypoints[self._wp].x + (dif_x/2)
+                    else: 
+                        x = self.mission.waypoints[self._wp].x - (dif_x/2)
+                    if self.mission.waypoints[self._wp].y < self.mission.waypoints[next_wp].y: 
+                        y = self.mission.waypoints[self._wp].y + (dif_y/2)
+                    else: 
+                        y = self.mission.waypoints[self._wp].y - (dif_y/2)
+                    self._orbita = PVector(x, y)
                 
-                posToCenter = PVector.sub(centro, self.pos)
+                posToCenter = PVector.sub(self._orbita, self.pos)
                 ctp = posToCenter.normalize(None).mult(self.mission.raio)
                 centerToPerim = PVector(ctp.x, ctp.y)
                 theta = atan2(centerToPerim.y, centerToPerim.x)
                 if self.mission.rota[self._wp] == 1: theta += 0.4
                 else: theta -= 0.4
                 
-                x = centro.x - (self.mission.raio * cos(theta))
-                y = centro.y - (self.mission.raio * sin(theta))
+                x = self._orbita.x - (self.mission.raio * cos(theta))
+                y = self._orbita.y - (self.mission.raio * sin(theta))
                 self.alvo = PVector(x, y)
                 
                 if PVector.sub(self.mission.waypoints[next_wp], self.alvo).mag() < 5:
                     self._wp  = next_wp
                     next_wp = (self._wp+1) % len(self.mission.waypoints)
                     self.alvo = self.mission.waypoints[next_wp]
+                    self._orbita = None
 
     def _targuet(self):
         fill(255,0,0)
@@ -150,7 +154,7 @@ class Drone:
             
             h9 = self.velo.heading() - PI/2
             for i in range(5, 14):
-                if self.colide > 0: break
+                if self.colide == 1: break
                 hx = h9 + (PI * (i/20.0)) 
                 borda  = PVector(self.pos.x + (75*cos(hx)), self.pos.y + (75*sin(hx)))
                 for i in range(10, 100, 10):
@@ -179,8 +183,10 @@ class Drone:
                 self.alvo   = PVector(x, y)
                 self.colide = 2
         else:
-            line(self.pos.x, self.pos.y, self.alvo.x, self.alvo.y)
+            self._targuet()
             if PVector.sub(self.alvo, self.pos).mag() < 35:
-                next_wp = (self._wp+1) % len(self.mission.waypoints)
+                next_wp   = (self._wp+1) % len(self.mission.waypoints)
                 self.alvo = self.mission.waypoints[next_wp]
                 self.colide = 0
+                
+                
