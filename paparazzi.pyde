@@ -55,8 +55,7 @@ def draw():
     fill(0)
     if obsOn: text('Set Obstacle', 500, 12)
     else: text(labels[p], 500, 12)
-    text('Press: [d] add drone | [r] on/off radar mode | [p] change mission', 2, 778)
-    text('Press: [o] add obstacle or set center mission with mouse click', 2, 790)
+    text('Press: [o] add obstacle or set center mission with mouse click | [p] change mission | [d] add drone | [r] on/off radar mode | [x] on/off view obstacles detected by radar', 2, 790)
     
     f += 1
     f = f % len(drones)
@@ -118,3 +117,7 @@ def keyPressed():
     if key == 'o':
         global obsOn
         obsOn = (obsOn+1)%2
+        
+    if key == 'x':
+        for i in range(len(drones)):
+            drones[i].printObs = (drones[i].printObs+1) % 2

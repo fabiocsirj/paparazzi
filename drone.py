@@ -10,8 +10,9 @@ class Drone:
         self.radarOn  = 0
         
         # Variaveis auxiliares de colisao
-        self.colide  = 0
-        self.objeto  = PVector(0, 0)
+        self._obstacles = []
+        self.printObs   = 0
+        self.timeRadar  = 0
         
         # Variaveis auxiliares para o seek
         self._wp     = 0
@@ -32,6 +33,9 @@ class Drone:
         translate(self.pos.x, self.pos.y)
         rotate(angulo)
         img = loadImage("drone4.png")
+        if self.printObs:
+            fill(255, 0, 255) 
+            ellipse(0, 20, 5, 5)
         image(img, -37, 0)
         fill(255)
         text("{}".format(self.id), -5, 37)
@@ -39,7 +43,7 @@ class Drone:
 
     def execute(self):
         if self.mission != None:
-            if self.colide == 0: self._seek()
+            self._seek()
 
             # DEFINE A DIRECAO
             direcao = PVector.sub(self.alvo, self.pos)          # Direcao = a diferenca entre o alvo e a posicao atual
@@ -49,8 +53,6 @@ class Drone:
             self.maxSpeed = min(6, self.maxSpeed+0.2)           # Aceleracao gradual
             if not self._path and distancia < 70: 
                 self.maxSpeed = map(distancia, 0, 70, 0.1, 6)   # Desaceleracao gradual para entrar no path
-            if self.colide == 1:
-                self.maxSpeed = map(PVector.dist(self.objeto, self.pos), 50, 100, 0, 6)  # Desaceleracao brusca para evitar colisao
 
             # print('max speed:', self.maxSpeed)
             direcao.limit(self.maxSpeed)                        # Limita o salto de direcao pela velocidade estabelecida acima
@@ -71,6 +73,20 @@ class Drone:
             # ATUALIZA POSICAO
             self.pos.add(self.velo)                             # Atualiza a posicao adicionando a velocidade a posicao atual
             ##################
+
+            # Obstaculos
+            if len(self._obstacles):
+                self.timeRadar = (self.timeRadar+1) % 100
+                for o in self._obstacles:
+                    if self.printObs:
+                        fill(255,0,255)
+                        ellipse(o.x, o.y, 10, 10)
+                    d = PVector.sub(o, self.pos)
+                    d.limit(map(PVector.dist(o, self.pos), 0, 100, 3, 0))
+                    self.pos.sub(d)
+                    if PVector.dist(o, self.pos) > 100: self._obstacles.remove(o)
+                    elif self._obstacles.index(o) == self.timeRadar: self._obstacles.remove(o)
+            ############
 
             # Pertubacao do vento
             self.pos.sub(self.wind)
@@ -103,11 +119,9 @@ class Drone:
         
         else: # Esta no path
             next_wp = (self._wp+1) % len(self.mission.waypoints)
-            if PVector.dist(self.mission.waypoints[next_wp], self.pos) < 15:
-                self._wp  = next_wp
+            if PVector.dist(self.mission.waypoints[next_wp], self.pos) < 15: 
+                self._nextTarguet()
                 next_wp = (self._wp+1) % len(self.mission.waypoints)
-                self.alvo = self.mission.waypoints[next_wp]
-                self._orbita = None
 
             if self.mission.rota[self._wp] > 0:
                 if not self._orbita:
@@ -134,11 +148,14 @@ class Drone:
                 y = self._orbita.y - (self.mission.raio * sin(theta))
                 self.alvo = PVector(x, y)
                 
-                if PVector.dist(self.mission.waypoints[next_wp], self.alvo) < 5:
-                    self._wp  = next_wp
-                    next_wp = (self._wp+1) % len(self.mission.waypoints)
-                    self.alvo = self.mission.waypoints[next_wp]
-                    self._orbita = None
+                if PVector.dist(self.mission.waypoints[next_wp], self.alvo) < 5: 
+                    self._nextTarguet()
+
+    def _nextTarguet(self):
+        self._wp     = (self._wp+1) % len(self.mission.waypoints)
+        next_wp      = (self._wp+1) % len(self.mission.waypoints)
+        self.alvo    = self.mission.waypoints[next_wp]
+        self._orbita = None
 
     def _targuet(self):
         fill(255,0,0)
@@ -147,48 +164,39 @@ class Drone:
         line(self.pos.x, self.pos.y, self.alvo.x, self.alvo.y);
 
     def radar(self):
-        if self.colide == 0:
-            saveFrame("radar{}.jpg".format(self.id))
-            imgRadar = loadImage("radar{}.jpg".format(self.id))
-            loadPixels()
-            
-            h9 = self.velo.heading() - PI/2
-            for i in range(5, 14):
-                if self.colide == 1: break
-                hx = h9 + (PI * (i/20.0)) 
-                borda  = PVector(self.pos.x + (75*cos(hx)), self.pos.y + (75*sin(hx)))
-                for i in range(10, 100, 10):
-                    fp = PVector.sub(borda, self.pos).normalize(None).mult(i) # Posicao futura
-                    # point(self.pos.x+fp.x, self.pos.y+fp.y)
-                    pix = pixels[int(self.pos.y+fp.y)*1200+int(self.pos.x+fp.x)]
-                    pixels[int(self.pos.y+fp.y)*1200+int(self.pos.x+fp.x)] = -16777200
-                    if pix != -1:
-                        print('Detectou')
-                        x = int(self.pos.x+fp.x)
-                        y = int(self.pos.y+fp.y)
-                        print('X:', x)
-                        print('Y:', y)
-                        self.colide = 1
-                        self.objeto = PVector(x, y)
-                        break
-            updatePixels()
+        colide = False
         
-        elif self.colide == 1:
-            # fill(255,0,255)
-            # ellipse(self.objeto.x, self.objeto.y, 10, 10)
-            if self.velo.mag() < 1:
-                r = int(random(2))
-                if r: theta = self.velo.heading() - PI/2
-                else: theta = self.velo.heading() + PI/2
-                x = self.pos.x + (75 * cos(theta))
-                y = self.pos.y + (75 * sin(theta))
-                self.alvo   = PVector(x, y)
-                self.colide = 2
-        else:
-            self._targuet()
-            if PVector.dist(self.alvo, self.pos) < 35:
-                next_wp   = (self._wp+1) % len(self.mission.waypoints)
-                self.alvo = self.mission.waypoints[next_wp]
-                self._orbita = None
-                self.colide = 0
-                
+        saveFrame("radar{}.jpg".format(self.id))
+        imgRadar = loadImage("radar{}.jpg".format(self.id))
+        loadPixels()
+        
+        h9 = self.velo.heading() - PI/2
+        for i in range(5, 14):
+            if colide: break
+            hx = h9 + (PI * (i/20.0)) 
+            borda  = PVector(self.pos.x + (75*cos(hx)), self.pos.y + (75*sin(hx)))
+            for i in range(10, 100, 10):
+                fp = PVector.sub(borda, self.pos).normalize(None).mult(i) # Posicao futura
+                # point(self.pos.x+fp.x, self.pos.y+fp.y)
+                pix = pixels[int(self.pos.y+fp.y)*1200+int(self.pos.x+fp.x)]
+                pixels[int(self.pos.y+fp.y)*1200+int(self.pos.x+fp.x)] = -16777200
+                if pix != -1:
+                    print('Detectou')
+                    x = int(self.pos.x+fp.x)
+                    y = int(self.pos.y+fp.y)
+                    print('X:', x)
+                    print('Y:', y)
+                    obstaculo = PVector(x, y)
+                    
+                    next_wp = (self._wp+1) % len(self.mission.waypoints)
+                    if PVector.dist(obstaculo, self.mission.waypoints[next_wp]) < 15: self._nextTarguet()
+                    
+                    if len(self._obstacles) == 0: 
+                        self._obstacles.append(obstaculo)
+                    elif abs(x-self._obstacles[-1].x) > 5 or abs(y-self._obstacles[-1].y) > 5: 
+                        self._obstacles.append(obstaculo)
+
+                    colide = True
+                    break
+        updatePixels()
+        
