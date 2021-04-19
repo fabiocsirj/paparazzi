@@ -121,3 +121,4 @@ def keyPressed():
     if key == 'x':
         for i in range(len(drones)):
             drones[i].printObs = (drones[i].printObs+1) % 2
+            

@@ -31,3 +31,4 @@ class Path_oval:
             stroke(0, 0, 255)
             line(self.waypoints[1].x, self.waypoints[1].y, self.waypoints[2].x, self.waypoints[2].y)
             line(self.waypoints[3].x, self.waypoints[3].y, self.waypoints[0].x, self.waypoints[0].y)
+            
